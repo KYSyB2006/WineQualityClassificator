@@ -1,0 +1,8 @@
+# Thème de l'application — lu automatiquement par Streamlit
+[theme]
+base = "light"
+primaryColor = "#6E1A33"              # bordeaux : barres, boutons, élément actif
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F3F1"
+textColor = "#221418"
+borderColor = "#E6DEDB"

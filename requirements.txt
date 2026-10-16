@@ -1,0 +1,9 @@
+# Versions figées : l'image Docker, la CI GitHub et ton PC utilisent exactement les mêmes.
+# (Le modèle .joblib ne se recharge correctement qu'avec la même version de scikit-learn.)
+streamlit==1.65.0
+altair==6.3.0
+scikit-learn==1.9.1
+pandas==3.0.6
+numpy>=2.0,<3
+joblib==1.6.0
+pytest==9.1.1

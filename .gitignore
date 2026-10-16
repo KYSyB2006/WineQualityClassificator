@@ -1,0 +1,10 @@
+# Environnement Python local et fichiers de l'IDE
+.venv/
+venv/
+.idea/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+# Fichiers parasites
+config.streamlit
