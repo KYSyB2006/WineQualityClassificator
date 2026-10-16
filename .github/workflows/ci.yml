@@ -1,0 +1,78 @@
+# Intégration continue : à chaque push ou pull request, GitHub vérifie automatiquement le projet.
+#   1. tests  : installe les librairies, entraîne le modèle, lance pytest
+#   2. docker : construit l'image, la démarre et vérifie que l'app répond ;
+#               sur la branche main, publie l'image sur GitHub Container Registry (ghcr.io)
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer les librairies
+        run: pip install -r requirements.txt
+
+      - name: Entraîner le modèle
+        run: python train.py
+
+      - name: Lancer les tests unitaires
+        run: python -m pytest -q test_model.py
+
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Nom de l'image en minuscules (obligatoire sur ghcr.io) + étiquettes latest / sha
+      - name: Étiquettes de l'image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Construire l'image (le Dockerfile entraîne le modèle et lance les tests)
+        run: docker build -t qualite-vin .
+
+      - name: Démarrer le conteneur et vérifier que l'app répond
+        run: |
+          docker run -d --name app -p 8501:8501 qualite-vin
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8501/_stcore/health; then echo " -> app OK"; exit 0; fi
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: Se connecter à ghcr.io
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier l'image
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+            docker tag qualite-vin "$tag"
+            docker push "$tag"
+          done

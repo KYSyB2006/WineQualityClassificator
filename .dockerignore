@@ -1,0 +1,12 @@
+# Fichiers inutiles dans l'image Docker (elle les recrée ou n'en a pas besoin)
+.git
+.github
+.idea
+.venv
+__pycache__
+*.pyc
+*.joblib
+*.ipynb
+.ipynb_checkpoints
+WineClassificator.py
+config.streamlit
