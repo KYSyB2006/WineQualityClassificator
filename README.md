@@ -5,6 +5,8 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9.1-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.65-FF4B4B?logo=streamlit&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+[![Ouvrir dans Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://winequalityclassificator-efrei.streamlit.app/)
+[![Image Docker](https://img.shields.io/badge/ghcr.io-image_publiée-2496ED?logo=github&logoColor=white)](https://github.com/KYSyB2006/WineQualityClassificator/pkgs/container/winequalityclassificator)
 
 Projet de Machine Learning — **EFREI Paris, ING2-BDML, 2026/2027**
 Binôme : **Awêro OKETOKOUN** & **Belva YONTA**
@@ -13,7 +15,10 @@ Binôme : **Awêro OKETOKOUN** & **Belva YONTA**
 > vin sera jugé **bon** (note ≥ 7/10) par des dégustateurs. Le modèle final, un **Random Forest** rééquilibré,
 > obtient un **F1 de 0,57 en validation croisée** sur la classe « bon », contre 0,34 sur le test pour une régression
 > logistique de base. Il est servi par une **application Streamlit**, empaquetée dans une **image Docker** et
-> vérifiée à chaque push par **GitHub Actions**.
+> vérifiée à chaque push par **GitHub Actions**, qui publie l'image sur GitHub Container Registry.
+>
+> **Essayer l'application :** 👉 [https://winequalityclassificator-efrei.streamlit.app/](https://winequalityclassificator-efrei.streamlit.app/) · ou en local avec Docker :
+> `docker run -p 8501:8501 ghcr.io/kysyb2006/winequalityclassificator:latest`
 
 ![Aperçu de l'application](docs/apercu_blanc.png)
 
@@ -30,8 +35,9 @@ Binôme : **Awêro OKETOKOUN** & **Belva YONTA**
 7. [Installation et utilisation](#7-installation-et-utilisation)
 8. [Docker](#8-docker)
 9. [Intégration continue (GitHub Actions)](#9-intégration-continue-github-actions)
-10. [Limites et pistes d'amélioration](#10-limites-et-pistes-damélioration)
-11. [Références](#11-références)
+10. [Déploiement](#10-déploiement)
+11. [Limites et pistes d'amélioration](#11-limites-et-pistes-damélioration)
+12. [Références](#12-références)
 
 ---
 
@@ -121,6 +127,31 @@ du déséquilibre compte autant que la non-linéarité.
 Sur le jeu de test, le Random Forest optimisé atteint un **F1 de 0,54** (précision 0,51, rappel 0,58, accuracy
 0,82) : il retrouve 145 bons vins sur 252, contre 63 pour la régression logistique de base.
 
+### Courbes ROC des modèles optimisés (jeu de test)
+
+Le F1 juge un modèle à un seul seuil (50 %) ; la courbe ROC le juge à tous les seuils, et son aire (AUC) mesure
+sa capacité à **trier** les vins du plus probablement bon au moins probablement bon.
+
+| Modèle | AUC avant | AUC après |
+|---|---:|---:|
+| k-NN | 0,796 | 0,792 |
+| Naive Bayes | 0,765 | 0,768 |
+| Arbre de décision | 0,641 | 0,794 |
+| **Random Forest** | 0,845 | **0,849** |
+
+<p align="center">
+  <img src="fig_roc_optimises.png" width="60%" alt="Courbes ROC des modèles optimisés">
+</p>
+
+- Le **Random Forest optimisé** a la meilleure AUC du projet, devant la régression logistique (0,822) et le SVM
+  (0,812) de base : à 20 % de faux positifs, il retrouve 71 % des bons vins, contre 66 % pour le k-NN. Il a donc
+  à la fois le meilleur F1 et la meilleure AUC.
+- L'**arbre** gagne le plus (0,641 → 0,794) : non bridé, il ne répondait que 0 ou 1 ; limité à une profondeur de 3,
+  ses 8 feuilles donnent des probabilités nuancées.
+- Le **k-NN** et **Naive Bayes** ne bougent presque pas, comme leurs F1.
+- Les points marquent le seuil de 50 % : le k-NN est prudent (9 % de faux positifs, 47 % des bons vins retrouvés),
+  l'arbre généreux (30 % de faux positifs, 77 % retrouvés), le Random Forest entre les deux (13 % / 58 %).
+
 ### Ce qu'on retient
 
 - **Le déséquilibre est le principal obstacle.** `class_weight="balanced"` est le réglage qui aide le plus : il
@@ -178,7 +209,7 @@ WineQualityClassificator/
 ├── modele_vin.joblib         # modèle entraîné (créé par train.py)
 ├── scaler_vin.joblib         # standardisation (créée par train.py)
 ├── colonnes.joblib           # ordre des colonnes attendu par le modèle
-├── fig_*.png                 # figures produites par le notebook
+├── fig_*.png                 # figures produites par le notebook (dont fig_roc_optimises.png)
 └── docs/                     # captures d'écran de l'application
 ```
 
@@ -248,7 +279,42 @@ docker run -p 8501:8501 ghcr.io/kysyb2006/winequalityclassificator:latest
 
 Le badge en haut de ce fichier indique si la dernière vérification a réussi.
 
-## 10. Limites et pistes d'amélioration
+## 10. Déploiement
+
+Le projet est déployé de deux façons, toutes deux mises à jour automatiquement à chaque push sur `main` :
+
+| Où | Quoi | Accès |
+|---|---|---|
+| **Streamlit Community Cloud** | l'application en ligne, ouverte dans un navigateur | [winequalityclassificator-efrei.streamlit.app](https://winequalityclassificator-efrei.streamlit.app/) |
+| **GitHub Container Registry** | l'image Docker construite et testée par la CI | `ghcr.io/kysyb2006/winequalityclassificator:latest` |
+
+### Application en ligne (Streamlit Community Cloud)
+
+Streamlit Community Cloud lit directement ce dépôt : il installe `requirements.txt` puis lance `app.py`. Les fichiers
+du modèle (`*.joblib`) sont versionnés, l'application n'a donc rien à entraîner au démarrage.
+
+1. Se connecter sur [share.streamlit.io](https://share.streamlit.io) avec son compte GitHub.
+2. **Create app** → déployer depuis un dépôt GitHub : dépôt `KYSyB2006/WineQualityClassificator`, branche `main`,
+   fichier `app.py`.
+3. Dans **Advanced settings**, choisir **Python 3.11** (la version de Docker et de la CI).
+4. **Deploy** : l'application obtient une adresse en `….streamlit.app`.
+
+> Sur l'offre gratuite, une application inutilisée pendant plusieurs jours se met en veille : le premier visiteur
+> doit cliquer sur « Wake up » et attendre environ une minute.
+
+### Image Docker (GitHub Container Registry)
+
+À chaque push sur `main`, la CI publie l'image testée avec les étiquettes `latest` et le SHA du commit. Pour
+qu'elle soit téléchargeable sans compte, la rendre publique une fois : page du paquet → **Package settings** →
+**Change visibility** → **Public**.
+
+```bash
+docker pull ghcr.io/kysyb2006/winequalityclassificator:latest
+docker run -p 8501:8501 ghcr.io/kysyb2006/winequalityclassificator:latest
+# puis ouvrir http://localhost:8501
+```
+
+## 11. Limites et pistes d'amélioration
 
 - **Généralisation limitée** : les vins viennent d'une seule région portugaise et les notes sont subjectives ; le
   modèle ne s'applique pas tel quel à d'autres vins.
@@ -259,7 +325,7 @@ Le badge en haut de ce fichier indique si la dernière vérification a réussi.
 - **Pistes** : ajustement du seuil par validation croisée, autres modèles d'ensemble (gradient boosting),
   explication locale des prédictions (valeurs SHAP), prédiction de la note exacte (régression).
 
-## 11. Références
+## 12. Références
 
 - P. Cortez, A. Cerdeira, F. Almeida, T. Matos et J. Reis. *Modeling wine preferences by data mining from
   physicochemical properties.* Decision Support Systems, Elsevier, 47(4):547-553, 2009.
